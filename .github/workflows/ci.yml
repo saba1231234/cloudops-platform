@@ -52,6 +52,10 @@ jobs:
             ghcr.io/${{ github.repository }}:latest
             ghcr.io/${{ github.repository }}:${{ github.sha }}
       
+      - name: Debug OIDC claims
+        if: github.event_name == 'push'
+        uses: github/actions-oidc-debugger@v1
+
       - name: Configure AWS credentials
         if: github.event_name == 'push'
         uses: aws-actions/configure-aws-credentials@v4
