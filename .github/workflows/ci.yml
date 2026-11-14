@@ -3,6 +3,7 @@ name: CloudOps Platform CI
 permissions:
   contents: read
   packages: write
+  id-token: write
 
 on:
   push:
@@ -50,3 +51,14 @@ jobs:
           tags: |
             ghcr.io/${{ github.repository }}:latest
             ghcr.io/${{ github.repository }}:${{ github.sha }}
+      
+      - name: Configure AWS credentials
+        if: github.event_name == 'push'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::936441715679:role/GitHubActionsCloudOpsDeployRole
+          aws-region: eu-central-1
+      
+      - name: Verify AWS identity
+        if: github.event_name == 'push'
+        run: aws sts get-caller-identity
