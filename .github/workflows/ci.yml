@@ -1,3 +1,4 @@
+
 name: CloudOps Platform CI
 
 permissions:
@@ -31,7 +32,7 @@ jobs:
 
       - name: Run tests
         run: python -m pytest -v
-        
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -51,10 +52,41 @@ jobs:
           tags: |
             ghcr.io/${{ github.repository }}:latest
             ghcr.io/${{ github.repository }}:${{ github.sha }}
-      
-      - name: Debug OIDC claims
+
+      - name: Inspect OIDC claims
         if: github.event_name == 'push'
-        uses: github/actions-oidc-debugger@v1
+        run: |
+          python - <<'PY'
+          import os
+          import json
+          import urllib.request
+          import base64
+
+          url = os.environ["ACTIONS_ID_TOKEN_REQUEST_URL"]
+          token_request_url = url + "&audience=sts.amazonaws.com"
+
+          request = urllib.request.Request(
+              token_request_url,
+              headers={
+                  "Authorization": (
+                      f"Bearer {os.environ['ACTIONS_ID_TOKEN_REQUEST_TOKEN']}"
+                  )
+              }
+          )
+
+          with urllib.request.urlopen(request) as response:
+              token = json.loads(response.read())["value"]
+
+          payload = token.split(".")[1]
+          payload += "=" * (-len(payload) % 4)
+
+          claims = json.loads(
+              base64.urlsafe_b64decode(payload)
+          )
+
+          for key in ["iss", "aud", "sub"]:
+              print(f"{key}: {claims.get(key)}")
+          PY
 
       - name: Configure AWS credentials
         if: github.event_name == 'push'
@@ -62,7 +94,7 @@ jobs:
         with:
           role-to-assume: arn:aws:iam::936441715679:role/GitHubActionsCloudOpsDeployRole
           aws-region: eu-central-1
-      
+
       - name: Verify AWS identity
         if: github.event_name == 'push'
         run: aws sts get-caller-identity
